@@ -21,16 +21,16 @@
 
 
 
-#include <vtkCellData.h>
-#include <vtkDoubleArray.h>
+//#include <vtkCellData.h>
+//#include <vtkDoubleArray.h>
 #include <vtkFloatArray.h>
 
-#include <vtkCellArray.h>
+//#include <vtkCellArray.h>
 #include <vtkPoints.h>
 #include <vtkPolyData.h>
 #include <vtkPointData.h>
 #include <vtkCleanPolyData.h>
-#include <vtkMaskPoints.h>
+//#include <vtkMaskPoints.h>
 #include <vtkMergePoints.h>
 #include <vtkPointSource.h>
 #include <vtkPolyDataNormals.h>
@@ -62,7 +62,7 @@
 //#include <vtkGeometryFilter.h>
 #include <vtkUnstructuredGrid.h>
 //#include <vtkDataSetSurfaceFilter.h>
-#include <vtkProperty.h>
+//#include <vtkProperty.h>
 
 
 
@@ -594,10 +594,6 @@ vtkSmartPointer<vtkPolyData> combinePolys (vtkSmartPointer<vtkPolyData> polyA, v
 			polyMarchingCombine->ShallowCopy(appendFilterAS->GetOutput()); 
 		}
 	
-
-	//appendFilterAS->Delete();
-
-
 	return polyMarchingCombine;
 }
 
@@ -610,6 +606,7 @@ int main(int argc, char *argv[])
 	vtkstd::string inputFileNameAxial;
 	vtkstd::string inputFileNameSag;
 	vtkstd::string inputFileNameCor;
+
 	
 	if( argc == 2 )
     {
@@ -642,92 +639,57 @@ int main(int argc, char *argv[])
 	typedef itk::ImageFileWriter<OutputImageType> WriterType;
 	typedef itk::CastImageFilter< InputImageType, MidImageType > CastFilterType;
 
-	//ReaderType::Pointer reader = ReaderType::New();
-	//WriterType::Pointer writer = WriterType::New();
 
-	MidImageType::Pointer midImageAixal= MidImageType ::New();
-	MidImageType::Pointer midImageSag= MidImageType ::New();
-	MidImageType::Pointer midImageCor= MidImageType ::New();
+
+	vtkSmartPointer<vtkPoints> pointsInit = vtkSmartPointer<vtkPoints>::New();
+	vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New(); 
+	vtkSmartPointer<vtkPolyData> marchingPoly = vtkSmartPointer<vtkPolyData>::New();
 	
-	vtkSmartPointer<vtkImageData> midImageVTKAxial = vtkSmartPointer<vtkImageData>::New();
-	vtkSmartPointer<vtkImageData> midImageVTKSag = vtkSmartPointer<vtkImageData>::New();
-	vtkSmartPointer<vtkImageData> midImageVTKCor = vtkSmartPointer<vtkImageData>::New();
-
-	vtkSmartPointer<vtkPoints> pointsInitAxial = vtkSmartPointer<vtkPoints>::New();
-	vtkSmartPointer<vtkPoints> pointsInitSag = vtkSmartPointer<vtkPoints>::New();
-	vtkSmartPointer<vtkPoints> pointsInitCor = vtkSmartPointer<vtkPoints>::New();
-	  
-	
-	vtkSmartPointer<vtkPolyData> polydataAxial = vtkSmartPointer<vtkPolyData>::New(); 
-	vtkSmartPointer<vtkPolyData> polydataSag = vtkSmartPointer<vtkPolyData>::New();
-	vtkSmartPointer<vtkPolyData> polydataCor = vtkSmartPointer<vtkPolyData>::New();
-
+	vtkSmartPointer<vtkPolyData> marchingPolyPre = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> polyDataCombine = vtkSmartPointer<vtkPolyData>::New();  //contain points on contours
 	
 
-	vtkSmartPointer<vtkPolyData> marchingPolyAxial = vtkSmartPointer<vtkPolyData>::New();
-	vtkSmartPointer<vtkPolyData> marchingPolySag = vtkSmartPointer<vtkPolyData>::New();
-	vtkSmartPointer<vtkPolyData> marchingPolyCor = vtkSmartPointer<vtkPolyData>::New();
-
-	vtkSmartPointer<vtkTransform> transformIJKtoRASAxial = vtkSmartPointer<vtkTransform>::New();
-	vtkSmartPointer<vtkTransform> transformIJKtoRASSag = vtkSmartPointer<vtkTransform>::New();
-	vtkSmartPointer<vtkTransform> transformIJKtoRASCor = vtkSmartPointer<vtkTransform>::New();
-
-	vtkSmartPointer<vtkPolyData> polyMarchingCombine;
 	vtkSmartPointer<vtkKdTreePointLocator> kDTree;
-
+	vtkSmartPointer<vtkPolyData> polyMarchingCombine; //Marching cube result
 	
-	std::string labelName="brain0811_";
+	std::string labelName="brain0813_";
 	std::vector<int> madeModels; //The labels for surface reconstruction
+	std::vector< MidImageType::Pointer > midImage_V;
+	std::vector<std::string> inputFileName;
+	std::vector< vtkSmartPointer<vtkImageData> > midImageVTK_V;
+	std::vector< vtkSmartPointer<vtkTransform> > transformIJKtoRAS_V;
 	
 	if (flagAxialImage ) //read Axial Image
 	{
-		ReaderType::Pointer reader = ReaderType::New();
-		reader->SetFileName(inputFileNameAxial.c_str());
-		reader->Update();
-	
-		//Cast input volume to a volume with unsigned char pixel
-		CastFilterType::Pointer castInputFilterA = CastFilterType::New();
-		castInputFilterA->SetInput(reader->GetOutput());
-		castInputFilterA->Update();
-		midImageAixal= castInputFilterA->GetOutput();
-		
-		//itk to vtk
-		typedef itk::ImageToVTKImageFilter<MidImageType> ConnectorType;
-		ConnectorType::Pointer connector =ConnectorType::New();
-		connector->SetInput(midImageAixal);
-	
-		vtkNew<vtkImageChangeInformation> ici;
-		ici->SetInput(connector->GetOutput());
-		ici->SetOutputSpacing(1, 1, 1);
-		ici->SetOutputOrigin(0, 0, 0);
-		ici->Update();
+		inputFileName.push_back(inputFileNameAxial.c_str());
 
-		midImageVTKAxial = ici->GetOutput();
-		midImageVTKAxial->Update();
-
-	
-		//for acquiring transform
-		vtkITKArchetypeImageSeriesScalarReader *scalarReader = vtkITKArchetypeImageSeriesScalarReader::New();
-		scalarReader->SetArchetype(inputFileNameAxial.c_str());
-		scalarReader->SetOutputScalarTypeToNative();
-		scalarReader->SetDesiredCoordinateOrientationToNative();
-		scalarReader->SetUseNativeOriginOn();
-		scalarReader->Update();
-		transformIJKtoRASAxial->SetMatrix(scalarReader->GetRasToIjkMatrix());
-		transformIJKtoRASAxial->Inverse();
-
-		//Get labels to be surface reconstructed
-		madeModels = getLabels(midImageVTKAxial);
-		
-
-
-}
+	}
 
 	
 	if (flagSagittalImage) //read sagittle image
 	{
+		inputFileName.push_back(inputFileNameSag.c_str());
+		
+	}
+
+
+	if (flagCoronalImage) //read sagittle image
+	{
+		inputFileName.push_back(inputFileNameCor.c_str());
+		
+	}
+	
+	
+	//Read input volumes and get labels
+	for(::size_t l=0; l <inputFileName.size(); l++)
+	{
+ 
+		std::string filename=inputFileName[l];
+		std::cout << "Now File name is  "
+				<< inputFileName[l] << std::endl;
+	
 		ReaderType::Pointer reader = ReaderType::New();
-		reader->SetFileName(inputFileNameSag.c_str());
+		reader->SetFileName(inputFileName[l]);
 		reader->Update();
 
 
@@ -735,13 +697,15 @@ int main(int argc, char *argv[])
 		CastFilterType::Pointer castInputFilterS = CastFilterType::New();
 		castInputFilterS->SetInput(reader->GetOutput());
 		castInputFilterS->Update();
-		//MidImageType::Pointer midImageSag= MidImageType ::New();
-		midImageSag= castInputFilterS->GetOutput();
+		
+		MidImageType::Pointer midImage= MidImageType ::New();
+		midImage= castInputFilterS->GetOutput();
+		midImage_V.push_back(midImage);
 	
 		//itk to vtk
 		typedef itk::ImageToVTKImageFilter<MidImageType> ConnectorType;
 		ConnectorType::Pointer connector =ConnectorType::New();
-		connector->SetInput(midImageSag);
+		connector->SetInput(midImage);
 	
 		vtkNew<vtkImageChangeInformation> ici;
 		ici->SetInput(connector->GetOutput());
@@ -749,197 +713,102 @@ int main(int argc, char *argv[])
 		ici->SetOutputOrigin(0, 0, 0);
 		ici->Update();
 
-		midImageVTKSag = ici->GetOutput();
-		midImageVTKSag->Update();
-
-	
-		//for acquiring transform
-		vtkITKArchetypeImageSeriesScalarReader *scalarReader = vtkITKArchetypeImageSeriesScalarReader::New();
-
+		vtkSmartPointer<vtkImageData> midImageVTK = vtkSmartPointer<vtkImageData>::New();
 		
-		scalarReader->SetArchetype(inputFileNameSag.c_str());
+		midImageVTK = ici->GetOutput();
+		midImageVTK->Update();
+
+		midImageVTK_V.push_back(midImageVTK);
+
+		//for acquiring transform
+		vtkSmartPointer<vtkITKArchetypeImageSeriesScalarReader> scalarReader = 
+			vtkSmartPointer<vtkITKArchetypeImageSeriesScalarReader>::New();
+		vtkSmartPointer<vtkTransform> transformIJKtoRAS = vtkSmartPointer<vtkTransform>::New();
+		
+		scalarReader->SetArchetype(filename.c_str());
 		scalarReader->SetOutputScalarTypeToNative();
 		scalarReader->SetDesiredCoordinateOrientationToNative();
 		scalarReader->SetUseNativeOriginOn();
 		scalarReader->Update();
-		transformIJKtoRASSag->SetMatrix(scalarReader->GetRasToIjkMatrix());
-		transformIJKtoRASSag->Inverse();
-
-		//Generate a histogram of the labels
-		std::vector<int> madeModelsSag = getLabels(midImageVTKSag);
+		transformIJKtoRAS->SetMatrix(scalarReader->GetRasToIjkMatrix());
+		transformIJKtoRAS->Inverse();
 		
+		transformIJKtoRAS_V.push_back(transformIJKtoRAS);
 
-	}
-
-
-	if (flagCoronalImage) //read sagittle image
-	{
-		ReaderType::Pointer reader = ReaderType::New();
-		reader->SetFileName(inputFileNameCor.c_str());
-		reader->Update();
-
-
-		//Cast input volume to a volume with unsigned char pixel
-		CastFilterType::Pointer castInputFilterC = CastFilterType::New();
-		castInputFilterC->SetInput(reader->GetOutput());
-		castInputFilterC->Update();
-		midImageCor= castInputFilterC->GetOutput();
-	
-		//itk to vtk
-		typedef itk::ImageToVTKImageFilter<MidImageType> ConnectorType;
-		ConnectorType::Pointer connector =ConnectorType::New();
-		connector->SetInput(midImageCor);
-	
-		vtkNew<vtkImageChangeInformation> ici;
-		ici->SetInput(connector->GetOutput());
-		ici->SetOutputSpacing(1, 1, 1);
-		ici->SetOutputOrigin(0, 0, 0);
-		ici->Update();
-
-		midImageVTKCor = ici->GetOutput();
-		midImageVTKCor->Update();
-
-	
-		//for acquiring transform
-		vtkITKArchetypeImageSeriesScalarReader *scalarReader = vtkITKArchetypeImageSeriesScalarReader::New();
-
-		scalarReader->SetArchetype(inputFileNameCor.c_str());
-		scalarReader->SetOutputScalarTypeToNative();
-		scalarReader->SetDesiredCoordinateOrientationToNative();
-		scalarReader->SetUseNativeOriginOn();
-		scalarReader->Update();
-		transformIJKtoRASCor->SetMatrix(scalarReader->GetRasToIjkMatrix());
-		transformIJKtoRASCor->Inverse();
 
 		//Generate a histogram of the labels
-		std::vector<int> madeModelsCor = getLabels(midImageVTKCor);
+		if (l==0)
+			madeModels = getLabels(midImageVTK);
+		else
+			continue;
+	
 	}
 	
 	
+
 	
-	
-	for (::size_t l =0; l < madeModels.size(); l++)
+	for (::size_t m =0; m < madeModels.size(); m++)
 	{
-		int labelValue= madeModels[l];
+		int labelValue= madeModels[m];
 		std::stringstream lable;
 		lable<<labelValue;
 
-		
-		if(flagAxialImage)
+		for(::size_t l=0; l <inputFileName.size(); l++)
 		{
-			//Get points at boundary  	
-			pointsInitAxial=getVolumeContourPoints(getMask(midImageAixal,labelValue));
 
-			/*	Add the points to a polydata     */    
-			polydataAxial->SetPoints(pointsInitAxial); 
- 		   
+			pointsInit=getVolumeContourPoints(getMask(midImage_V[l], 1));
+			polydata->SetPoints(pointsInit); 
+			std::cout << "There are  "
+				<< polydata->GetNumberOfPoints() << " points in " << inputFileName[l] << std::endl;
+	
 			//Get marching cube result
-			marchingPolyAxial=getMarchingcubePoly(midImageVTKAxial,labelValue, transformIJKtoRASAxial);
-		
-			if(polyMarchingCombine)
+			marchingPoly=getMarchingcubePoly(midImageVTK_V[l],labelValue, transformIJKtoRAS_V[l]);
+
+			std::cout << "There are  "
+				<< marchingPoly->GetNumberOfPoints() << " marchingpoy in " << inputFileName[l] << std::endl;
+
+			if(l==0)
 			{
-				polyMarchingCombine=NULL;
-			}
-			polyMarchingCombine = vtkSmartPointer<vtkPolyData>::New();
-			polyMarchingCombine->ShallowCopy(marchingPolyAxial); 
-
-			if(flagSagittalImage)
-			{
-				//Get points at boundary  	
-				pointsInitSag=getVolumeContourPoints(getMask(midImageSag,labelValue));
-
-				/*	Add the points to a polydata     */    
-				polydataSag->SetPoints(pointsInitSag); 
- 		   
-				//Get marching cube result
-				marchingPolySag=getMarchingcubePoly(midImageVTKSag,labelValue, transformIJKtoRASSag);
-			
-				//Combine axial and saggital points
-				std::cout << "There are  "
-				<< polydataAxial->GetNumberOfPoints() << "input points in polydataAxial before" << std::endl;
-				combinePoints (polydataAxial, polydataSag);
-				//combinePoints (polydataAxial, polydataCor);
-				std::cout << "There are  "
-				<< polydataAxial->GetNumberOfPoints() << "input points in polydataAxial after" << std::endl;
-
-
-				//combine marching cube results
-				std::cout << "There are  "
-				<< marchingPolyAxial->GetNumberOfPoints() << "input points." << std::endl;
+				polyDataCombine->ShallowCopy(polydata);
 				
 				if(polyMarchingCombine)
 				{
 					polyMarchingCombine=NULL;
 				}
 				polyMarchingCombine = vtkSmartPointer<vtkPolyData>::New();
-				polyMarchingCombine->ShallowCopy(combinePolys(marchingPolyAxial, marchingPolySag,NULL)); 
+				polyMarchingCombine->ShallowCopy(marchingPoly); 
+			}
+			else
+			{
+				//Combine  points
+				std::cout << "There are  "
+				<< polyDataCombine->GetNumberOfPoints() << "input points in polydata before" << " l= " <<l<< std::endl;
+				
+				combinePoints (polyDataCombine, polydata);
+
+				std::cout << "There are  "
+				<< polyDataCombine->GetNumberOfPoints() << "input points in polydata after" << " l= " <<l<< std::endl;
+
+
+				//combine marching cube results
+				std::cout << "There are  "
+				<< marchingPoly->GetNumberOfPoints() << "input marching result before combine."  << " l= " <<l<< std::endl;
+				
+				if(polyMarchingCombine)
+				{
+					polyMarchingCombine=NULL;
+				}
+				polyMarchingCombine = vtkSmartPointer<vtkPolyData>::New();
+				polyMarchingCombine->ShallowCopy(combinePolys(marchingPolyPre, marchingPoly,NULL)); 
 				
 				std::cout << "There are  "
-				<< polyMarchingCombine->GetNumberOfPoints() << "input points." << std::endl;
-	
-				vtkSmartPointer<vtkXMLPolyDataWriter> writerMarchingCom =
-				vtkSmartPointer<vtkXMLPolyDataWriter>::New();
-  
-				writerMarchingCom->SetInput(polyMarchingCombine);
-				writerMarchingCom->SetFileName("marchingCom.vtp");
-				writerMarchingCom->Write();
+				<< polyMarchingCombine->GetNumberOfPoints() << " input marching result after combine." << std::endl;
 
-				if(flagCoronalImage)
-				{
-					//Get points at boundary  	
-					pointsInitCor=getVolumeContourPoints(getMask(midImageCor,labelValue));
-
-					/*	Add the points to a polydata     */    
-					polydataCor->SetPoints(pointsInitCor); 
- 		   
-					//Get marching cube result
-					marchingPolyCor=getMarchingcubePoly(midImageVTKCor,labelValue, transformIJKtoRASCor);
-		
-
-
-					//Combine axial, saggital and coronal points
-					std::cout << "There are  "
-					<< polydataAxial->GetNumberOfPoints() << "input points in polydataAxial before" << std::endl;
-					combinePoints (polydataAxial, polydataCor);
-					std::cout << "There are  "
-					<< polydataAxial->GetNumberOfPoints() << "input points in polydataAxial after" << std::endl;
-
-
-					//combine marching cube results
-					std::cout << "There are  "
-					<< marchingPolyAxial->GetNumberOfPoints() << "input points." << std::endl;
-				
-					if(polyMarchingCombine)
-					{
-						polyMarchingCombine=NULL;
-					}
-					polyMarchingCombine = vtkSmartPointer<vtkPolyData>::New();
-					polyMarchingCombine->ShallowCopy(combinePolys(marchingPolyAxial, marchingPolySag, marchingPolyCor));
-				
-					std::cout << "There are  "
-					<< polyMarchingCombine->GetNumberOfPoints() << "input points." << std::endl;
-	
-					vtkSmartPointer<vtkXMLPolyDataWriter> writerMarchingCom3 =
-					vtkSmartPointer<vtkXMLPolyDataWriter>::New();
-  
-					writerMarchingCom3->SetInput(polyMarchingCombine);
-					writerMarchingCom3->SetFileName("marchingCom.vtp");
-					writerMarchingCom3->Write();
-				
-				
-				
-				}
-			
 			
 			}
 
-
-
+			marchingPolyPre->ShallowCopy(polyMarchingCombine);
 		}
-
-	
-		// Create the tree
-		
 		
 		if(kDTree)
 		{
@@ -968,9 +837,9 @@ int main(int argc, char *argv[])
 		pointNormalsArray->SetNumberOfTuples(polyMarchingCombine->GetNumberOfPoints());
 
   
-		for (unsigned int i=0; i< polydataAxial->GetNumberOfPoints(); i++)
+		for (unsigned int i=0; i< polyDataCombine->GetNumberOfPoints(); i++)
 		{
-		polydataAxial->GetPoint(i, pTTrans);
+		polyDataCombine->GetPoint(i, pTTrans);
   
 		// Find the closest points to TestPoint
 		iD = kDTree->FindClosestPoint(pTTrans);
@@ -995,12 +864,12 @@ int main(int argc, char *argv[])
 		}
 
 		// Add the normals to the points in the polydata
-		polydataAxial->GetPointData()->SetNormals(pointNormalsArray); 
+		polyDataCombine->GetPointData()->SetNormals(pointNormalsArray); 
 
 
 		//Make a vtkPolyData with a vertex on each point.
 		vtkSmartPointer<vtkVertexGlyphFilter> vertexFilter = vtkSmartPointer<vtkVertexGlyphFilter>::New();
-		vertexFilter->SetInputConnection(polydataAxial->GetProducerPort());
+		vertexFilter->SetInputConnection(polyDataCombine->GetProducerPort());
 		vertexFilter->Update();
 
 
@@ -1038,7 +907,6 @@ int main(int argc, char *argv[])
 		writerSurface->Update();
 
 	}
-	
 
 
   return EXIT_SUCCESS;
