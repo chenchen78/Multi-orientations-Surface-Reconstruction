@@ -63,7 +63,7 @@
 #include <vtkUnstructuredGrid.h>
 //#include <vtkDataSetSurfaceFilter.h>
 //#include <vtkProperty.h>
-
+#include <vtkBooleanOperationPolyDataFilter.h>
 
 
 
@@ -643,16 +643,18 @@ int main(int argc, char *argv[])
 
 	vtkSmartPointer<vtkPoints> pointsInit = vtkSmartPointer<vtkPoints>::New();
 	vtkSmartPointer<vtkPolyData> polydata = vtkSmartPointer<vtkPolyData>::New(); 
-	vtkSmartPointer<vtkPolyData> marchingPoly = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> polyDataCombine = vtkSmartPointer<vtkPolyData>::New();  //contain combination of points on contours
 	
 	vtkSmartPointer<vtkPolyData> marchingPolyPre = vtkSmartPointer<vtkPolyData>::New();
-	vtkSmartPointer<vtkPolyData> polyDataCombine = vtkSmartPointer<vtkPolyData>::New();  //contain points on contours
+	vtkSmartPointer<vtkPolyData> marchingPoly = vtkSmartPointer<vtkPolyData>::New();
+	vtkSmartPointer<vtkPolyData> polyMarchingCombine; //Marching cube result combination
+
 	
 
 	vtkSmartPointer<vtkKdTreePointLocator> kDTree;
-	vtkSmartPointer<vtkPolyData> polyMarchingCombine; //Marching cube result
+	vtkSmartPointer<vtkPolyData> surfacePre = vtkSmartPointer<vtkPolyData>::New();
 	
-	std::string labelName="brain0813_";
+	std::string labelName="brain0820_";
 	std::vector<int> madeModels; //The labels for surface reconstruction
 	std::vector< MidImageType::Pointer > midImage_V;
 	std::vector<std::string> inputFileName;
@@ -756,7 +758,7 @@ int main(int argc, char *argv[])
 		for(::size_t l=0; l <inputFileName.size(); l++)
 		{
 
-			pointsInit=getVolumeContourPoints(getMask(midImage_V[l], 1));
+			pointsInit=getVolumeContourPoints(getMask(midImage_V[l], labelValue));
 			polydata->SetPoints(pointsInit); 
 			std::cout << "There are  "
 				<< polydata->GetNumberOfPoints() << " points in " << inputFileName[l] << std::endl;
@@ -899,12 +901,67 @@ int main(int argc, char *argv[])
   
 		//Write the file
 		std::string fileName;
-		fileName = "d:" + std::string("/") + labelName + lable.str()+ std::string(".vtp");
+		fileName = "f:" + std::string("/") + labelName + lable.str()+ std::string(".vtp");
 		vtkSmartPointer<vtkXMLPolyDataWriter> writerSurface =
 		vtkSmartPointer<vtkXMLPolyDataWriter>::New();
 		writerSurface->SetInputConnection(poissonFilter->GetOutputPort());
 		writerSurface->SetFileName(fileName.c_str());
 		writerSurface->Update();
+
+
+
+		
+		std::string fileName2;
+		fileName2 = "f:" + std::string("/") + labelName + lable.str()+ std::string("__")+std::string(".vtp");
+
+		
+		
+
+
+		if (m==0)
+		{
+		surfacePre->ShallowCopy(poissonFilter->GetOutput());
+
+		}
+		else
+		{
+		
+				
+		vtkSmartPointer<vtkXMLPolyDataWriter> writerSurface3 =
+		vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+		writerSurface3->SetInput(surfacePre);
+		writerSurface3->SetFileName("f:\\surfacePre.vtp");
+		writerSurface3->Update();
+
+
+		vtkSmartPointer<vtkBooleanOperationPolyDataFilter> booleanOperation =
+		vtkSmartPointer<vtkBooleanOperationPolyDataFilter>::New();	
+		booleanOperation->SetInputConnection( 0, surfacePre->GetProducerPort() );
+
+	
+
+		booleanOperation->SetInputConnection( 1, poissonFilter->GetOutputPort() );
+		booleanOperation->SetOperationToUnion();
+		booleanOperation->Update();
+		surfacePre->ShallowCopy(booleanOperation->GetOutput());
+
+
+		}
+
+		vtkSmartPointer<vtkXMLPolyDataWriter> writerSurface2 =
+		vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+		writerSurface2->SetInput(surfacePre);
+		writerSurface2->SetFileName(fileName2.c_str());
+		writerSurface2->Update();
+		
+		
+
+
+
+
+		
+
+
 
 	}
 
